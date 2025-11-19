@@ -188,15 +188,23 @@ def modified_secant(f, x0, delta, tol, max_iter):
 
     return x1, error, max_iter, logs
 
-
 # ----------------------------------------------------
-# Streamlit GUI
+# Streamlit GUI (Improved)
 # ----------------------------------------------------
 
-st.title("🔢 ZOF Numerical Methods – Web GUI")
+st.set_page_config(page_title="ZOF Numerical Methods", layout="centered")
 
+st.markdown("<h1 style='text-align:center;'>🔢 CSC 431 Root Finding Methods – Web GUI</h1>",
+            unsafe_allow_html=True)
+
+st.write("Compute roots of equations using classical numerical methods.\n"
+         "Enter parameters, run the solver, and view iteration results.")
+
+st.markdown("---")
+
+# Select method
 method = st.selectbox(
-    "Choose a Root-Finding Method",
+    "Select a Root-Finding Method:",
     [
         "Bisection Method",
         "Regula Falsi Method",
@@ -207,63 +215,99 @@ method = st.selectbox(
     ]
 )
 
-st.subheader("Enter Polynomial Coefficients")
-coeffs = st.text_input("Coefficients (highest degree first)", "1 0 -4")
+# Polynomial input
+st.subheader("📘 Polynomial Function")
+coeffs = st.text_input("Enter polynomial coefficients (highest degree first)", "1 0 -4")
 coeffs = list(map(float, coeffs.split()))
 
-tol = st.number_input("Tolerance", value=0.0001, step=0.0001)
-max_iter = st.number_input("Maximum Iterations", value=50, step=1)
+tol_col, iter_col = st.columns(2)
+tol = tol_col.number_input("Tolerance", value=0.0001, step=0.0001, format="%.6f")
+max_iter = iter_col.number_input("Maximum Iterations", value=50, step=1)
 
 f = build_polynomial(coeffs)
 
-# Method-specific parameters
-a = b = x0 = x1 = delta = None
-g = None
+st.markdown("---")
+
+# Method-specific inputs
+st.subheader("⚙ Method Parameters")
 
 if method in ["Bisection Method", "Regula Falsi Method"]:
-    a = st.number_input("a (interval start)", value=0.0)
-    b = st.number_input("b (interval end)", value=5.0)
+    colA, colB = st.columns(2)
+    a = colA.number_input("Interval start (a)", value=0.0)
+    b = colB.number_input("Interval end (b)", value=5.0)
 
-if method in ["Secant Method"]:
-    x0 = st.number_input("x0", value=1.0)
-    x1 = st.number_input("x1", value=3.0)
+if method == "Secant Method":
+    colA, colB = st.columns(2)
+    x0 = colA.number_input("Initial guess x0", value=1.0)
+    x1 = colB.number_input("Initial guess x1", value=3.0)
 
 if method in ["Newton–Raphson Method", "Fixed Point Iteration", "Modified Secant Method"]:
     x0 = st.number_input("Initial guess x0", value=2.0)
 
 if method == "Modified Secant Method":
-    delta = st.number_input("Delta", value=0.01)
+    delta = st.number_input("Delta value", value=0.01)
 
 if method == "Fixed Point Iteration":
-    st.info("Using g(x) = x - f(x)")
+    st.info("Using iteration function  **g(x) = x - f(x)**")
     g = lambda x: x - f(x)
+else:
+    g = None
 
+st.markdown("---")
 
-# Run button
-if st.button("Compute Root"):
-    if method == "Bisection Method":
-        root, err, iters, logs = bisection(f, a, b, tol, max_iter)
+# Compute button
+center_btn = st.columns([3, 2, 3])
+with center_btn[1]:
+    run_clicked = st.button("🚀 Compute Root", use_container_width=True)
 
-    elif method == "Regula Falsi Method":
-        root, err, iters, logs = regula_falsi(f, a, b, tol, max_iter)
+# Run solver
+if run_clicked:
+    try:
+        if method == "Bisection Method":
+            root, err, iters, logs = bisection(f, a, b, tol, max_iter)
+        elif method == "Regula Falsi Method":
+            root, err, iters, logs = regula_falsi(f, a, b, tol, max_iter)
+        elif method == "Secant Method":
+            root, err, iters, logs = secant(f, x0, x1, tol, max_iter)
+        elif method == "Newton–Raphson Method":
+            root, err, iters, logs = newton_raphson(f, x0, tol, max_iter)
+        elif method == "Fixed Point Iteration":
+            root, err, iters, logs = fixed_point_iteration(g, x0, tol, max_iter)
+        elif method == "Modified Secant Method":
+            root, err, iters, logs = modified_secant(f, x0, delta, tol, max_iter)
 
-    elif method == "Secant Method":
-        root, err, iters, logs = secant(f, x0, x1, tol, max_iter)
+        # Handle invalid cases
+        if isinstance(logs, list) and "error" in logs[0]:
+            st.error(logs[0]["error"])
+            st.stop()
 
-    elif method == "Newton–Raphson Method":
-        root, err, iters, logs = newton_raphson(f, x0, tol, max_iter)
+        # Show iteration table
+        st.subheader("📊 Iteration Details")
+        df_logs = pd.DataFrame(logs)
+        st.dataframe(df_logs, use_container_width=True, height=300)
 
-    elif method == "Fixed Point Iteration":
-        root, err, iters, logs = fixed_point_iteration(g, x0, tol, max_iter)
+        # Show final results
+        st.subheader("🏁 Final Result")
+        st.success(
+            f"""
+            **Estimated Root:** `{root}`  
+            **Final Error:** `{err}`  
+            **Iterations:** `{iters}`
+            """
+        )
 
-    elif method == "Modified Secant Method":
-        root, err, iters, logs = modified_secant(f, x0, delta, tol, max_iter)
+        # Optional convergence plot
+        with st.expander("📈 Show Convergence Plot"):
+            import matplotlib.pyplot as plt
 
-    st.subheader("Iteration Details")
-    df_logs = pd.DataFrame(logs)
-    st.dataframe(df_logs)
+            fig, ax = plt.subplots()
+            ax.plot(df_logs["Iteration"], df_logs["Error"], marker="o")
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("Error")
+            ax.set_title("Convergence of Error")
+            ax.grid()
 
-    st.subheader("Final Result")
-    st.write(f"**Estimated Root:** {root}")
-    st.write(f"**Final Error:** {err}")
-    st.write(f"**Iterations:** {iters}")
+            st.pyplot(fig)
+
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
