@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import math
-import matplotlib.pyplot as plt
 
 # ----------------------------------------------------
 #  Utility: Build polynomial function
@@ -296,19 +295,5 @@ if run_clicked:
             **Iterations:** `{iters}`
             """
         )
-
-        # Optional convergence plot
-        with st.expander("📈 Show Convergence Plot"):
-            import matplotlib.pyplot as plt
-
-            fig, ax = plt.subplots()
-            ax.plot(df_logs["Iteration"], df_logs["Error"], marker="o")
-            ax.set_xlabel("Iteration")
-            ax.set_ylabel("Error")
-            ax.set_title("Convergence of Error")
-            ax.grid()
-
-            st.pyplot(fig)
-
     except Exception as e:
         st.error(f"An error occurred: {str(e)}")
